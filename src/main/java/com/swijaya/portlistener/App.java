@@ -1,6 +1,12 @@
 package com.swijaya.portlistener;
 
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.OptionBuilder;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.jboss.netty.bootstrap.Bootstrap;
@@ -8,17 +14,14 @@ import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFactory;
-import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Log4JLoggerFactory;
-
-import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.net.InetSocketAddress;
 import java.util.Iterator;
@@ -63,11 +66,7 @@ public class App  {
         factories = new LinkedList<ChannelFactory>();
         bootstraps = new LinkedList<Bootstrap>();
 
-        // configure the pipeline where our DISCARD logic lies
-        ChannelPipeline p = pipeline();
-        p.addLast("discard", new DiscardServerHandler(verbose, allChannels));
-        if (verbose)
-            p.addLast("log", new LoggingHandler("PortListener"));
+        ChannelPipelineFactory pipelineFactory = new DiscardServerPipelineFactory(verbose, allChannels);
 
         // configure a stream server bootstrap (if configured)
         if (useTcp) {
@@ -76,7 +75,7 @@ public class App  {
                     Executors.newCachedThreadPool(),
                     Executors.newCachedThreadPool());
             Bootstrap b = new ServerBootstrap(f);
-            b.setPipeline(p);
+            b.setPipelineFactory(pipelineFactory);
 
             // further configure connected sockets that would be created for clients of this acceptor
             b.setOption("child.tcpNoDelay", true);
@@ -92,9 +91,9 @@ public class App  {
             ChannelFactory f = new NioDatagramChannelFactory(
                     Executors.newCachedThreadPool());
             Bootstrap b = new ConnectionlessBootstrap(f);
-            b.setPipeline(p);
+            b.setPipelineFactory(pipelineFactory);
 
-            // configure server sockets' options
+            // configure additional socket options for this receiving end
             // TODO
 
             factories.add(f);
