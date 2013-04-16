@@ -48,8 +48,8 @@ public class App  {
             PortsConfig portsConfig,
             boolean useIpv4,
             boolean useIpv6,
-            boolean useUdp,
             boolean useTcp,
+            boolean useUdp,
             boolean verbose) {
         this.portsConfig = portsConfig;
         this.useIpv4 = useIpv4;
@@ -59,7 +59,7 @@ public class App  {
         this.verbose = verbose;
     }
 
-    public void configure() {
+    void configure() {
         factories = new LinkedList<ChannelFactory>();
         bootstraps = new LinkedList<Bootstrap>();
 
@@ -71,6 +71,7 @@ public class App  {
 
         // configure a stream server bootstrap (if configured)
         if (useTcp) {
+            LOGGER.trace("Configuring a stream server socket factory");
             ChannelFactory f = new NioServerSocketChannelFactory(
                     Executors.newCachedThreadPool(),
                     Executors.newCachedThreadPool());
@@ -87,6 +88,7 @@ public class App  {
 
         // configure a datagram server bootstrap (if configured)
         if (useUdp) {
+            LOGGER.trace("Configuring a datagram channel factory");
             ChannelFactory f = new NioDatagramChannelFactory(
                     Executors.newCachedThreadPool());
             Bootstrap b = new ConnectionlessBootstrap(f);
@@ -100,8 +102,11 @@ public class App  {
         }
     }
 
-    public void run() throws Exception {
-        configure();
+    void bind() {
+        if (useIpv4)
+            LOGGER.debug("Using IPv4");
+        else if (useIpv6)
+            LOGGER.debug("Using IPv6");
 
         // bind our server bootstraps to configured ports
         for (Bootstrap b : bootstraps) {
@@ -114,12 +119,14 @@ public class App  {
                 else if (useIpv4)
                     addr = new InetSocketAddress("0.0.0.0", port);
                 else
-                    addr = new InetSocketAddress("::0", port);
+                    addr = new InetSocketAddress("::", port);
 
                 if (b instanceof ServerBootstrap) {
+                    LOGGER.trace("Binding a server bootstrap to " + addr.toString());
                     ch = ((ServerBootstrap) b).bind(addr);
                 }
                 else if (b instanceof ConnectionlessBootstrap) {
+                    LOGGER.trace("Binding a datagram bootstrap to " + addr.toString());
                     ch = ((ConnectionlessBootstrap) b).bind(addr);
                 }
                 else {
@@ -128,17 +135,23 @@ public class App  {
                 allChannels.add(ch);
             }
         }
+    }
+
+    public void run() throws Exception {
+        configure();
+
+        bind();
 
         // handle Ctrl-C to clean up after ourselves
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
+                LOGGER.trace("Exiting application.");
                 ChannelGroupFuture f = allChannels.close();
                 f.awaitUninterruptibly();
                 for (ChannelFactory factory : factories)
                     factory.releaseExternalResources();
                 LOGGER.debug("Shutdown.");
-                LOGGER.trace("Exiting application.");
             }
         });
     }
