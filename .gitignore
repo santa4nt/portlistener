@@ -1,0 +1,10 @@
+*~
+*.swp
+*.class
+
+# Maven artifacts
+target/*
+
+# User-specific IDEA settings
+*.iws
+
