@@ -104,9 +104,9 @@ public class App  {
 
     void bind() {
         if (useIpv4)
-            LOGGER.debug("Using IPv4");
+            LOGGER.trace("Using IPv4");
         else if (useIpv6)
-            LOGGER.debug("Using IPv6");
+            LOGGER.trace("Using IPv6");
 
         // bind our server bootstraps to configured ports
         for (Bootstrap b : bootstraps) {
